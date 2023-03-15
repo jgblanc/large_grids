@@ -19,7 +19,7 @@ def get_params(x):
 
 rule all:
     input:
-        expand("output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.ids.vcf.gz", rep=REP, chr=CHR)
+        expand("output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.psam", rep=REP, chr=CHR)
 
 
 # Simluate Genotypes
@@ -59,31 +59,22 @@ rule format_VCF:
 	rm {input}
 	"""
 
-rule concat_vcfs:
-    input:
-        expand("output/Simulate_Genotypes/SimpleGrid/{{rep}}/genos_{chr}.ids.vcf.gz", chr=CHR)
-    output:
-        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.ids.vcf.gz"
-    shell:
-        """
-        bcftools concat {input} -o output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/temp.vcf.gz -O z
-        bcftools annotate --rename-chrs code/Simulate_Genotypes/convert_chr.txt output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/temp.vcf.gz -o {output} -O z
-        rm output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/temp.vcf.gz
-        """
-
 rule convert_vcf_to_plink:
     input:
-        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.ids.vcf.gz"
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.ids.vcf.gz"
     output:
-        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.psam",
-	      "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pgen",
-      	"output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pvar"
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.psam",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.pgen",
+      	"output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.pvar"
     shell:
-        "plink2 \
+        """
+        plink2 \
         --double-id \
         --make-pgen \
-        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos \
-        --vcf {input}"
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr} \
+        --vcf {input}
+        rm {input}
+        """
 
 rule create_panels_SimpleGrid:
     input:
