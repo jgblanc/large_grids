@@ -1,3 +1,0 @@
-
-	python code/Simulate_Genotypes/generate_genotypes_SimpleGrid.py 	       --outpre output/Simulate_Genotypes/SimpleGrid/C1/genos 	       --chr 1 	       --sample_size 80 	       --length 100 	       --Ne 100 	       --mu 1e-07 	       --rho 1e-07 	       --tmove -9 	       --migrate 0.01
-	

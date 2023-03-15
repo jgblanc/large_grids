@@ -19,7 +19,7 @@ def get_params(x):
 
 rule all:
     input:
-        expand("output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.vcf", rep=REP, chr=CHR)
+        expand("output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.ids.vcf.gz", rep=REP, chr=CHR)
 
 
 # Simluate Genotypes
@@ -48,12 +48,13 @@ rule format_VCF:
     input:
         "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.vcf"
     output:
-        gz="output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.ids.vcf.gz"
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.ids.vcf.gz"
     shell:
         """
 	      head -n6 {input} > output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/header_{wildcards.chr}.txt
-	            cat output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/header_{wildcards.chr}.txt <(cat output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}.vcf | awk -v OFS="\t" 'NR>6 {{$3=$1"_"$2"_A_T";$4="A"; $5="T"; print ;}}') | bgzip > {output.gz}
+	            cat output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/header_{wildcards.chr}.txt <(cat output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}.vcf | awk -v OFS="\t" 'NR>6 {{$3=$1"_"$2"_A_T";$4="A"; $5="T"; print ;}}') | bgzip > {output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}_temp.vcf.gz}
 			        rm output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/header_{wildcards.chr}.txt
+			        bcftools annotate --rename-chrs code/Simulate_Genotypes/convert_chr.txt output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}_temp.vcf.gz -o {output} -O z
 				      """
 
 rule concat_vcfs:
