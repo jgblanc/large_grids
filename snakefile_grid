@@ -19,7 +19,7 @@ def get_params(x):
 
 rule all:
     input:
-        expand("output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.psam", rep=REP, chr=CHR)
+        expand("output/Simulate_Genotypes/SimpleGrid/{rep}/chr_list.txt", rep=REP, chr=CHR)
 
 
 # Simluate Genotypes
@@ -76,6 +76,41 @@ rule convert_vcf_to_plink:
         rm {input}
 	rm output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}.log
         """
+
+rule make_chr_list:
+    input:
+        expand("output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.psam", chr = CHR)
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/chr_list.txt"
+    params:
+        nchr = len(CHR)
+    shell:
+        """
+        > {output}
+        for i in {1..{{params.chr}}}
+        do
+        echo output/Simulate_Genotypes/SimpleGrid/{rep}/genos_$i >> chr_list.txt
+        done
+        """
+
+rule concat_plink_files:
+    input:
+        expand("output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.psam", chr=CHR)
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.psam",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pgen",
+      	"output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pvar"
+    shell:
+        """
+        plink2 \
+        --double-id \
+        --make-pgen \
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr} \
+        --vcf {input}
+        rm {input}
+	rm output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}.log
+        """
+
 
 rule create_panels_SimpleGrid:
     input:
