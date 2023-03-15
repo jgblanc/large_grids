@@ -34,8 +34,8 @@ rule simulate_genotypes_SimpleGrid:
 	python code/Simulate_Genotypes/generate_genotypes_SimpleGrid.py \
 	       --outpre output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos \
 	       --chr {params.chr_num} \
-	       --sample_size 80 \
-	       --length 100 \
+	       --sample_size 10 \
+	       --length 1000 \
 	       --Ne 100 \
 	       --mu 1e-07 \
 	       --rho 1e-07 \
@@ -74,6 +74,7 @@ rule convert_vcf_to_plink:
         --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr} \
         --vcf {input}
         rm {input}
+	rm output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}.log
         """
 
 rule create_panels_SimpleGrid:
