@@ -11,11 +11,10 @@ GWAS_SIZE = 60 * 36
 
 wildcard_constraints:
     rep="[A-Z]\d+",
-    config="C1",
+    config="C1"
 
 def get_params(x):
   out = str(x)
-  print(out)
   return out
 
 rule all:
@@ -28,22 +27,22 @@ rule all:
 rule simulate_genotypes_SimpleGrid:
     output:
         "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.vcf"
-	      "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pop"
     params:
-      chr_num = lambda wildcards: get_seed_msprime(wildcards.chr)
+      chr_num = lambda wildcards: get_params(wildcards.chr)
     shell:
         """
-        python code/Simulate_Genotypes/generate_genotypes_SimpleGrid.py \
+	python code/Simulate_Genotypes/generate_genotypes_SimpleGrid.py \
 	       --outpre output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos \
 	       --chr {params.chr_num} \
 	       --sample_size 80 \
 	       --length 100 \
-	       --Ne 1000 \
+	       --Ne 100 \
 	       --mu 1e-07 \
 	       --rho 1e-07 \
 	       --tmove -9 \
 	       --migrate 0.01
-	       """
+	"""
+
 
 rule format_VCF:
     input:

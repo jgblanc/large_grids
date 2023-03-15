@@ -23,11 +23,12 @@ import msprime
 import numpy as np
 import statistics
 import math
-import allel
-import matplotlib.pyplot as plt
-import statsmodels.api as sm
+import sys
+#import allel
+#import matplotlib.pyplot as plt
+#import statsmodels.api as sm
 import pandas as pd
-from scipy import (stats,ndimage)
+#from scipy import (stats,ndimage)
 
 #number of demes
 d=args.ndemes
@@ -86,11 +87,12 @@ mig_mat=step_mig_mat(m=args.migrate,nd=d)
 print(mig_mat.shape)
 print(mig_mat)
 
+
 #diploid sample size within each deme
 ss=args.ss
 
 ##### define function to simulate genotypes under a stepping stone migration model
-def step_geno(N, ss_each, l, tmove):
+def step_geno(N, ss_each, l, tmove, mmat):
     #N is the population size for each deme
     #ss_each is the haploid sample size for each deme
     #l is the length of the chromosome
@@ -151,7 +153,7 @@ print("simulating genotypes under demographic model")
 #simulate!
 
 # Simulate
-ts=step_geno(N=args.npop,ss_each=2*ss,l=args.length,tmove=args.tmove)
+ts=step_geno(N=args.npop,ss_each=2*ss,l=args.length,tmove=args.tmove, mmat=mig_mat)
     
 # Save to VCF
 print("writing genotype to vcf file")
