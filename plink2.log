@@ -1,0 +1,12 @@
+PLINK v2.00a2.3LM 64-bit Intel (24 Jan 2020)
+Options in effect:
+  --pmerge-list
+
+Hostname: midway3-login4.rcc.local
+Working directory: /project/jjberg/jgblanc/large_grids
+Start time: Fri Mar 17 12:15:21 2023
+
+Error: Unrecognized flag ('--pmerge-list').
+For more info, try "plink2 --help <flag name>" or "plink2 --help | more".
+
+End time: Fri Mar 17 12:15:21 2023

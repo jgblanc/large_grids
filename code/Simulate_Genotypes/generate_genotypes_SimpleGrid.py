@@ -114,7 +114,7 @@ def step_geno(N, ss_each, l, tmove, mmat):
                           migration_matrix=mmat,
                           mutation_rate=args.mu,
                           recombination_rate=args.rho,
-                          length=l)
+                             length=l)
     else:
         # add an extra deme to move lineages to after tmove generations
         population_configurations.append(msprime.PopulationConfiguration(sample_size = 0))
@@ -143,8 +143,7 @@ def step_geno(N, ss_each, l, tmove, mmat):
                               mutation_rate=args.mu,
                               recombination_rate=args.rho,
                               length=l,
-                           demographic_events=demog,
-                           random_seed = seed)
+                           demographic_events=demog)
 
     return(ts)
 

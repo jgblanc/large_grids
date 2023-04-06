@@ -1,0 +1,236 @@
+CHR =[]
+for i in range(1, 201):
+  CHR.append(str(i))
+REP = []
+for i in range(41, 51):
+  REP.append("B"+str(i))
+CONFIG = ["C1"]
+SS_TEST = 50 # Number of inidividuals per deme
+SIZE = SS_TEST * 36
+GWAS_SIZE = 250 * 36
+
+wildcard_constraints:
+    rep="[A-Z]\d+",
+    config="C1"
+
+def get_params(x):
+  out = str(x)
+  return out
+
+rule all:
+    input:
+        expand("output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.psam", rep=REP, chr=CHR)
+
+
+# Simluate Genotypes
+
+rule simulate_genotypes_SimpleGrid:
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.vcf"
+    params:
+      chr_num = lambda wildcards: get_params(wildcards.chr)
+    group: "group0"
+    shell:
+        """
+	python code/Simulate_Genotypes/generate_genotypes_SimpleGrid.py \
+	       --outpre output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos \
+	       --chr {params.chr_num} \
+	       --sample_size 300 \
+	       --length 1000000 \
+	       --Ne 10000 \
+	       --mu 1e-08 \
+	       --rho 1e-08 \
+	       --tmove -9 \
+	       --migrate 0.07
+	"""
+
+
+rule format_VCF:
+    input:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.vcf"
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.ids.vcf.gz"
+    group: "group0"
+    shell:
+        """
+	head -n6 {input} > output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/header_{wildcards.chr}.txt
+	cat output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/header_{wildcards.chr}.txt <(cat output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}.vcf | awk -v OFS="\t" 'NR>6 {{$3=$1"_"$2"_A_T";$4="A"; $5="T"; print ;}}') | bgzip > output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}_temp.vcf.gz
+	rm output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/header_{wildcards.chr}.txt
+	bcftools annotate --rename-chrs code/Simulate_Genotypes/convert_chr.txt output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}_temp.vcf.gz -o {output} -O z
+	rm output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}_temp.vcf.gz
+	rm {input}
+	"""
+
+rule convert_vcf_to_plink:
+    input:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.ids.vcf.gz"
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.psam",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.pgen",
+      	"output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.pvar"
+    group: "group0"	
+    shell:
+        """
+        plink2 \
+        --double-id \
+        --make-pgen \
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr} \
+        --vcf {input} \
+	--maf 0.01
+        rm {input}
+	rm output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}.log
+        """
+
+rule make_chr_list:
+    input:
+        expand("output/Simulate_Genotypes/SimpleGrid/{{rep}}/genos_{chr}.psam", chr = CHR)
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/chr_list.txt"
+    params:
+        nchr = len(CHR)
+    shell:
+        """
+        > {output}
+        sh code/Simulate_Genotypes/get_chr_list.sh {output} {params.nchr} output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}
+        """
+
+rule concat_plink_files:
+    input:
+        chrs=expand("output/Simulate_Genotypes/SimpleGrid/{{rep}}/genos_{chr}.psam", chr=CHR),
+	merge_list="output/Simulate_Genotypes/SimpleGrid/{rep}/chr_list.txt"
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.psam",
+	"output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pgen",
+      	"output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pvar"
+    shell:
+        """
+        plink2 \
+	--pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_1.psam \
+        --double-id \
+        --make-pgen \
+	--pmerge-list {input.merge_list} \
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos
+        rm {input.chrs}
+        """
+
+
+rule create_panels_SimpleGrid:
+    input:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pop"
+    output:
+        gwas="output/Simulate_Genotypes/SimpleGrid/{rep}/C1/ids.gwas",
+	      test="output/Simulate_Genotypes/SimpleGrid/{rep}/C1/ids.test"
+    params:
+        ss_test = SS_TEST,
+        seed = lambda wildcards: get_seed_msprime(wildcards.rep)
+    shell:
+        "Rscript code/Simulate_Genotypes/split_gwas-test_SimpleGrid.R {params.ss_test} {input} {output.gwas} {output.test} {params.seed}"
+
+rule split_into_test_gwas:
+    input:
+        gwas="output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/ids.gwas",
+	      test="output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/ids.test",
+	      psam="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.psam",
+		    pvar="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pvar",
+			  pgen="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pgen"
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.psam",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.pgen",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.pvar",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas.psam",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas.pgen",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas.pvar"
+    shell:
+        """
+	      plink2 \
+	            --keep {input.gwas} \
+		          --make-pgen \
+			        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-gwas \
+				      --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos \
+				            --rm-dup exclude-all
+
+        plink2 \
+        --keep {input.test} \
+        --make-pgen \
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-test \
+        --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos \
+	      --rm-dup exclude-all
+	            """
+
+rule get_variant_freq:
+    input:
+          "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.psam",
+	        "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.pvar",
+		      "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.pgen"
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.afreq",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas.afreq"
+    shell:
+        """
+        plink2 \
+	      --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-test \
+	            --freq \
+		          --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-test
+
+			        plink2 \
+        --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-gwas \
+        --freq \
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-gwas
+        """
+
+rule get_common_snp_list:
+    input:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.afreq",
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas.afreq"
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/common_snp_ids.txt"
+    script:
+        "code/Simulate_Genotypes/get_common_snp_list.R"
+
+rule remake_panels_with_common_snps:
+    input:
+        common_id="output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/common_snp_ids.txt",
+	      test_psam="output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.psam",
+	            test_pvar="output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.pvar",
+		          test_pgen="output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test.pgen",
+			        gwas_psam="output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas.psam",
+				      gwas_pvar="output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas.pvar",
+				      gwas_pgen="output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas.pgen"
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test_common.psam",
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test_common.pvar",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test_common.pgen",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas_common.psam",
+		    "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas_common.pvar",
+			  "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas_common.pgen",
+			  "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-gwas_common.afreq",
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/{config}/genos-test_common.afreq"
+    shell:
+        """
+        plink2 \
+        --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-test \
+        --extract {input.common_id} \
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-test_common \
+	      --make-pgen
+
+        plink2 \
+        --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-gwas \
+        --extract {input.common_id} \
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-gwas_common \
+	      --make-pgen
+
+	     plink2 \
+	     --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-gwas_common \
+	     --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-gwas_common \
+		   --freq
+
+        plink2 \
+	      --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-test_common \
+	      --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/{wildcards.config}/genos-test_common \
+		    --freq
+        """
+
+
+
+
+
