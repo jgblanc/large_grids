@@ -1,12 +1,12 @@
-PLINK v2.00a2.3LM 64-bit Intel (24 Jan 2020)
+PLINK v2.00a3LM 64-bit Intel (23 Jan 2021)
 Options in effect:
-  --pmerge-list
+  --update-map
 
-Hostname: midway3-login4.rcc.local
-Working directory: /project/jjberg/jgblanc/large_grids
-Start time: Fri Mar 17 12:15:21 2023
+Hostname: midway2-login1.rcc.local
+Working directory: /project2/jjberg/jgblanc/large_grids
+Start time: Sun Apr 16 16:32:57 2023
 
-Error: Unrecognized flag ('--pmerge-list').
+Error: Missing --update-map argument.
 For more info, try "plink2 --help <flag name>" or "plink2 --help | more".
 
-End time: Fri Mar 17 12:15:21 2023
+End time: Sun Apr 16 16:32:57 2023
