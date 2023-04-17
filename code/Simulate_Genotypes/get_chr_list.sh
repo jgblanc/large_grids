@@ -5,5 +5,5 @@ prefix=$3
 
 for ((i=2; i<=nchr; i++))
 do
-    echo $prefix/genos_$i >> $output
+    echo $prefix/genos.recoded_$i >> $output
 done
