@@ -81,17 +81,26 @@ rule convert_vcf_to_plink:
 	rm output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr}.log
         """
 
-rule make_chr_list:
+rule remove_dups:
     input:
-        expand("output/Simulate_Genotypes/SimpleGrid/{{rep}}/genos.recoded_{chr}.psam", chr = CHR)
+         pvar="output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.pvar",
+         psam="output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.psam",
+         pgen="output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.pgen"
     output:
-        "output/Simulate_Genotypes/SimpleGrid/{rep}/chr_list.txt"
-    params:
-        nchr = len(CHR)
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.rem_{chr}.psam",
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.rem_{chr}.pgen",
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.rem_{chr}.pvar"
     shell:
         """
-        > {output}
-        sh code/Simulate_Genotypes/get_chr_list.sh {output} {params.nchr} output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}
+        plink2 \
+        --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr} \
+        --double-id \
+        --make-pgen \
+        --rm-dup exclude-all \
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos.rem_{wildcards.chr}
+        rm {input.pvar}
+        rm {input.psam}
+        rm {input.pgen}
         """
 
 rule recode_pos_list:
@@ -104,29 +113,11 @@ rule recode_pos_list:
         Rscript code/Simulate_Genotypes/get_position_list.R {input} {output}
         """
 
-
-
-rule remove_dups:
-    input:
-         chr="output/Simulate_Genotypes/SimpleGrid/{rep}/genos_{chr}.pvar"
-    output:
-        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.rem_{chr}.psam",
-              "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.rem_{chr}.pgen",
-        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.rem_{chr}.pvar"
-    shell:
-        """
-        plink2 \
-              --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos_{wildcards.chr} \
-        --double-id \
-        --make-pgen \
-        --rm-dup exclude-all \
-        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos.rem_{wildcards.chr}
-        """
-
-
 rule recode_plink_files:
     input:
-         chr="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.rem_{chr}.pvar",
+         pvar="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.rem_{chr}.pvar",
+         psam="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.rem_{chr}.psam",
+         pgen="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.rem_{chr}.pgen",
 	       pos_list="output/Simulate_Genotypes/SimpleGrid/{rep}/position_{chr}.txt"
     output:
         "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.recoded_{chr}.psam",
@@ -138,28 +129,82 @@ rule recode_plink_files:
 	      --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos.rem_{wildcards.chr} \
         --double-id \
         --make-pgen \
-	--rm-dup exclude-all \
 	      --update-map {input.pos_list} \
         --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos.recoded_{wildcards.chr}
+        rm {input.pvar}
+        rm {input.psam}
+        rm {input.pgen}
+        rm {input.pos_list}
         """
 
+rule convert_to_plink1:
+    input:
+        psam="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.recoded_{chr}.psam",
+	      pgen="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.recoded_{chr}.pgen",
+      	pvar="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.recoded_{chr}.pvar"
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.recoded_{chr}.fam",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.recoded_{chr}.bim",
+      	"output/Simulate_Genotypes/SimpleGrid/{rep}/genos.recoded_{chr}.bed"
+    shell:
+        """
+        plink2 \
+	      --pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos.recoded_{wildcards.chr} \
+        --double-id \
+        --make-bed \
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos.recoded_{wildcards.chr}
+        rm {input.pvar}
+        rm {input.psam}
+        rm {input.pgen}
+        """
+
+rule make_chr_list:
+    input:
+        expand("output/Simulate_Genotypes/SimpleGrid/{{rep}}/genos.recoded_{chr}.fam", chr = CHR)
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/chr_list.txt"
+    params:
+        nchr = len(CHR)
+    shell:
+        """
+        > {output}
+        sh code/Simulate_Genotypes/get_chr_list.sh {output} {params.nchr} output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}
+        """
 
 
 rule concat_plink_files:
     input:
-        chrs=expand("output/Simulate_Genotypes/SimpleGrid/{{rep}}/genos.recoded_{chr}.psam", chr=CHR),
-	merge_list="output/Simulate_Genotypes/SimpleGrid/{rep}/chr_list.txt"
+        chrs_fam=expand("output/Simulate_Genotypes/SimpleGrid/{{rep}}/genos.recoded_{chr}.fam", chr=CHR),
+        chrs_bim=expand("output/Simulate_Genotypes/SimpleGrid/{{rep}}/genos.recoded_{chr}.bim", chr=CHR),
+        chrs_bam=expand("output/Simulate_Genotypes/SimpleGrid/{{rep}}/genos.recoded_{chr}.bam", chr=CHR)
+	      merge_list="output/Simulate_Genotypes/SimpleGrid/{rep}/chr_list.txt"
+    output:
+        "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.fam",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.bim",
+      	"output/Simulate_Genotypes/SimpleGrid/{rep}/genos.bed"
+    shell:
+        """
+        plink \
+	      --merge-list {input.merge_list} \
+        --make-bed \
+        --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos
+        """
+
+rule convert_back_to_plink2:
+    input:
+        fam="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.fam",
+	      bim="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.bim",
+      	bed="output/Simulate_Genotypes/SimpleGrid/{rep}/genos.bed"
     output:
         "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.psam",
-	"output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pgen",
+	      "output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pgen",
       	"output/Simulate_Genotypes/SimpleGrid/{rep}/genos.pvar"
     shell:
         """
         plink2 \
-	--pfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos.recoded_1 \
-        --double-id \
+	      --bfile output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos \
+	      --double-id \
         --make-pgen \
-	--pmerge-list {input.merge_list} \
         --out output/Simulate_Genotypes/SimpleGrid/{wildcards.rep}/genos
         """
 
